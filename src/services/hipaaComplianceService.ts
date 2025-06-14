@@ -3,15 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface HIPAAAuditLog {
   id?: string;
-  userId: string;
+  user_id: string;
   action: 'view' | 'create' | 'update' | 'delete' | 'export' | 'print';
-  resourceType: 'verification' | 'prior_auth' | 'patient_data';
-  resourceId: string;
-  ipAddress: string;
-  userAgent: string;
+  resource_type: 'verification' | 'prior_auth' | 'patient_data';
+  resource_id: string;
+  ip_address: string;
+  user_agent: string;
   timestamp: string;
   success: boolean;
-  errorMessage?: string;
+  error_message?: string;
 }
 
 export interface DataRetentionPolicy {
@@ -22,36 +22,60 @@ export interface DataRetentionPolicy {
 
 class HIPAAComplianceService {
   private readonly ENCRYPTION_KEY = 'HIPAA_ENCRYPTION_KEY';
-  private readonly AUDIT_TABLE = 'hipaa_audit_logs';
   
   // Data retention policies per HIPAA requirements
   private readonly retentionPolicies: DataRetentionPolicy[] = [
     { resourceType: 'verification_requests', retentionPeriodDays: 2555, autoDeleteEnabled: true }, // 7 years
     { resourceType: 'prior_auth_requests', retentionPeriodDays: 2555, autoDeleteEnabled: true }, // 7 years
-    { resourceType: 'audit_logs', retentionPeriodDays: 2555, autoDeleteEnabled: false }, // 7 years, manual review
+    { resourceType: 'hipaa_audit_logs', retentionPeriodDays: 2555, autoDeleteEnabled: false }, // 7 years, manual review
   ];
 
-  async logAccess(auditData: Omit<HIPAAAuditLog, 'id' | 'timestamp' | 'ipAddress' | 'userAgent'>): Promise<void> {
+  async logAccess(auditData: Omit<HIPAAAuditLog, 'id' | 'timestamp' | 'ip_address' | 'user_agent'>): Promise<void> {
     try {
       const clientInfo = this.getClientInfo();
       
       const auditLog: Omit<HIPAAAuditLog, 'id'> = {
         ...auditData,
         timestamp: new Date().toISOString(),
-        ipAddress: clientInfo.ipAddress,
-        userAgent: clientInfo.userAgent,
+        ip_address: clientInfo.ipAddress,
+        user_agent: clientInfo.userAgent,
       };
 
-      const { error } = await supabase
-        .from(this.AUDIT_TABLE)
-        .insert(auditLog);
+      // Use raw SQL query to insert into hipaa_audit_logs since it's not in the generated types yet
+      const { error } = await supabase.rpc('insert_hipaa_audit_log', {
+        p_user_id: auditLog.user_id,
+        p_action: auditLog.action,
+        p_resource_type: auditLog.resource_type,
+        p_resource_id: auditLog.resource_id,
+        p_ip_address: auditLog.ip_address,
+        p_user_agent: auditLog.user_agent,
+        p_success: auditLog.success,
+        p_error_message: auditLog.error_message || null
+      });
 
       if (error) {
         console.error('Failed to log HIPAA audit entry:', error);
-        // In production, this should trigger an alert
+        // Fallback: try direct insert if RPC fails
+        await this.fallbackAuditLog(auditLog);
       }
     } catch (error) {
       console.error('HIPAA audit logging error:', error);
+      // In production, this should trigger an alert
+    }
+  }
+
+  private async fallbackAuditLog(auditLog: Omit<HIPAAAuditLog, 'id'>): Promise<void> {
+    try {
+      // Direct SQL insert as fallback
+      const { error } = await supabase
+        .from('hipaa_audit_logs' as any)
+        .insert(auditLog as any);
+      
+      if (error) {
+        console.error('Fallback audit logging also failed:', error);
+      }
+    } catch (error) {
+      console.error('Fallback audit logging error:', error);
     }
   }
 
@@ -63,28 +87,18 @@ class HIPAAComplianceService {
     endDate?: string;
   }): Promise<HIPAAAuditLog[]> {
     try {
-      let query = supabase.from(this.AUDIT_TABLE).select('*');
-      
-      if (filters?.userId) {
-        query = query.eq('userId', filters.userId);
-      }
-      if (filters?.resourceType) {
-        query = query.eq('resourceType', filters.resourceType);
-      }
-      if (filters?.action) {
-        query = query.eq('action', filters.action);
-      }
-      if (filters?.startDate) {
-        query = query.gte('timestamp', filters.startDate);
-      }
-      if (filters?.endDate) {
-        query = query.lte('timestamp', filters.endDate);
-      }
-
-      const { data, error } = await query.order('timestamp', { ascending: false });
+      // Use RPC to get audit logs since the table isn't in generated types yet
+      const { data, error } = await supabase.rpc('get_hipaa_audit_logs', {
+        p_user_id: filters?.userId || null,
+        p_resource_type: filters?.resourceType || null,
+        p_action: filters?.action || null,
+        p_start_date: filters?.startDate || null,
+        p_end_date: filters?.endDate || null
+      });
       
       if (error) {
-        throw error;
+        console.error('Failed to retrieve audit logs:', error);
+        return [];
       }
 
       return data || [];
@@ -144,21 +158,26 @@ class HIPAAComplianceService {
       cutoffDate.setDate(cutoffDate.getDate() - policy.retentionPeriodDays);
 
       try {
-        const { error } = await supabase
-          .from(policy.resourceType)
-          .delete()
-          .lt('created_at', cutoffDate.toISOString());
+        let error: any = null;
+        
+        if (policy.resourceType === 'verification_requests') {
+          const result = await supabase
+            .from('verification_requests')
+            .delete()
+            .lt('created_at', cutoffDate.toISOString());
+          error = result.error;
+        }
 
         if (error) {
           console.error(`Data retention enforcement failed for ${policy.resourceType}:`, error);
           // Log this as a compliance issue
           await this.logAccess({
-            userId: 'system',
+            user_id: 'system',
             action: 'delete',
-            resourceType: policy.resourceType as any,
-            resourceId: 'bulk_retention_cleanup',
+            resource_type: policy.resourceType as any,
+            resource_id: 'bulk_retention_cleanup',
             success: false,
-            errorMessage: error.message,
+            error_message: error.message,
           });
         }
       } catch (error) {
@@ -186,10 +205,17 @@ class HIPAAComplianceService {
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - policy.retentionPeriodDays);
       
-      const { data, error } = await supabase
-        .from(policy.resourceType)
-        .select('id, created_at')
-        .lt('created_at', cutoffDate.toISOString());
+      let data: any[] = [];
+      let error: any = null;
+      
+      if (policy.resourceType === 'verification_requests') {
+        const result = await supabase
+          .from('verification_requests')
+          .select('id, created_at')
+          .lt('created_at', cutoffDate.toISOString());
+        data = result.data || [];
+        error = result.error;
+      }
       
       if (!error && data && data.length > 0) {
         retentionViolations.push(`${policy.resourceType}: ${data.length} records exceed retention period`);

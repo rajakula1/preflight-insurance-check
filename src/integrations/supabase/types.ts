@@ -9,6 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      hipaa_audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          error_message: string | null
+          id: string
+          ip_address: string
+          resource_id: string
+          resource_type: string
+          success: boolean
+          timestamp: string
+          user_agent: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address: string
+          resource_id: string
+          resource_type: string
+          success?: boolean
+          timestamp?: string
+          user_agent: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string
+          resource_id?: string
+          resource_type?: string
+          success?: boolean
+          timestamp?: string
+          user_agent?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string | null
