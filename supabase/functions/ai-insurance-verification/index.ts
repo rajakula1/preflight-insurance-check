@@ -14,7 +14,7 @@ const corsHeaders = {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Retry function for OpenAI API calls
+// Retry function for OpenAI API calls with better error handling
 async function callOpenAIWithRetry(payload: any, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -33,6 +33,11 @@ async function callOpenAIWithRetry(payload: any, maxRetries = 3) {
         // Rate limited - wait before retry
         const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff
         console.log(`Rate limited, waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
+        
+        if (attempt === maxRetries) {
+          throw new Error('OpenAI API rate limit exceeded. Please try again in a few minutes.');
+        }
+        
         await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
       }
@@ -43,7 +48,15 @@ async function callOpenAIWithRetry(payload: any, maxRetries = 3) {
         throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      
+      // Validate the response structure
+      if (!result || !result.choices || !result.choices[0] || !result.choices[0].message) {
+        console.error('Invalid OpenAI response structure:', result);
+        throw new Error('Invalid response from OpenAI API');
+      }
+
+      return result;
     } catch (error) {
       console.error(`Attempt ${attempt} failed:`, error);
       
@@ -112,57 +125,50 @@ Respond ONLY with valid JSON in this exact format:
   "additionalQuestions": ["question1_if_needed"]
 }`;
 
-    // Call OpenAI API with retry logic
-    const aiResponse = await callOpenAIWithRetry({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an expert insurance verification specialist. Always respond with valid JSON only.'
-        },
-        {
-          role: 'user',
-          content: aiPrompt
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 1000
-    });
-
-    const aiContent = aiResponse.choices[0].message.content;
-    console.log('AI response received:', aiContent);
-
-    // Parse AI response with better error handling
     let verificationResult;
+    
     try {
-      // Clean the response to ensure it's valid JSON
-      const cleanedContent = aiContent.trim().replace(/```json\n?|\n?```/g, '');
-      verificationResult = JSON.parse(cleanedContent);
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError);
-      console.error('Raw AI content:', aiContent);
-      
-      // Fallback result when AI parsing fails
-      verificationResult = {
-        status: 'error',
-        coverage: {
-          active: false,
-          effectiveDate: null,
-          terminationDate: null,
-          copay: null,
-          deductible: null,
-          inNetwork: false,
-          priorAuthRequired: false
-        },
-        reasoning: 'AI analysis could not be processed properly. Manual verification recommended.',
-        recommendations: ['Contact insurance provider directly', 'Verify patient information', 'Manual review required'],
-        additionalQuestions: ['Please confirm all insurance details are correct']
-      };
-    }
+      // Call OpenAI API with retry logic
+      const aiResponse = await callOpenAIWithRetry({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert insurance verification specialist. Always respond with valid JSON only.'
+          },
+          {
+            role: 'user',
+            content: aiPrompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1000
+      });
 
-    // Validate the parsed result structure
-    if (!verificationResult.status || !verificationResult.coverage || !verificationResult.reasoning) {
-      console.error('Invalid AI response structure:', verificationResult);
+      const aiContent = aiResponse.choices[0].message.content;
+      console.log('AI response received:', aiContent);
+
+      // Parse AI response with better error handling
+      try {
+        // Clean the response to ensure it's valid JSON
+        const cleanedContent = aiContent.trim().replace(/```json\n?|\n?```/g, '');
+        verificationResult = JSON.parse(cleanedContent);
+      } catch (parseError) {
+        console.error('Failed to parse AI response:', parseError);
+        console.error('Raw AI content:', aiContent);
+        throw new Error('AI response could not be parsed properly');
+      }
+
+      // Validate the parsed result structure
+      if (!verificationResult.status || !verificationResult.coverage || !verificationResult.reasoning) {
+        console.error('Invalid AI response structure:', verificationResult);
+        throw new Error('AI response was incomplete or invalid');
+      }
+
+    } catch (aiError) {
+      console.error('AI verification failed:', aiError);
+      
+      // Provide a fallback result when AI fails
       verificationResult = {
         status: 'error',
         coverage: {
@@ -174,9 +180,9 @@ Respond ONLY with valid JSON in this exact format:
           inNetwork: false,
           priorAuthRequired: false
         },
-        reasoning: 'AI response was incomplete. Manual verification required.',
-        recommendations: ['Manual verification required', 'Contact insurance provider'],
-        additionalQuestions: []
+        reasoning: `AI verification temporarily unavailable: ${aiError.message}. Manual verification recommended.`,
+        recommendations: ['Contact insurance provider directly', 'Verify patient information manually', 'Retry verification later'],
+        additionalQuestions: ['Please confirm all insurance details are correct']
       };
     }
 
