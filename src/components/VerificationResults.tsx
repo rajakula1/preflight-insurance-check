@@ -18,6 +18,11 @@ interface VerificationResultsProps {
 const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor }: VerificationResultsProps) => {
   const [isPriorAuthModalOpen, setIsPriorAuthModalOpen] = useState(false);
 
+  const handlePriorAuthClick = () => {
+    console.log('Prior Auth button clicked for verification:', result?.id);
+    setIsPriorAuthModalOpen(true);
+  };
+
   if (isLoading) {
     return (
       <Card className="w-full">
@@ -217,7 +222,7 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
             {result.status === 'requires_auth' && (
               <Button 
                 className="bg-yellow-600 hover:bg-yellow-700"
-                onClick={() => setIsPriorAuthModalOpen(true)}
+                onClick={handlePriorAuthClick}
               >
                 Initiate Prior Auth
               </Button>
@@ -256,13 +261,11 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
       </Card>
 
       {/* Prior Auth Modal */}
-      {isPriorAuthModalOpen && (
-        <PriorAuthModal
-          isOpen={isPriorAuthModalOpen}
-          onClose={() => setIsPriorAuthModalOpen(false)}
-          verification={result}
-        />
-      )}
+      <PriorAuthModal
+        isOpen={isPriorAuthModalOpen}
+        onClose={() => setIsPriorAuthModalOpen(false)}
+        verification={result}
+      />
     </>
   );
 };

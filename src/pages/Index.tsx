@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PatientForm from "@/components/PatientForm";
 import VerificationResults from "@/components/VerificationResults";
 import AuditLog from "@/components/AuditLog";
 import DashboardNotifications from "@/components/DashboardNotifications";
+import PriorAuthModal from "@/components/PriorAuthModal";
 import { useVerifications } from "@/hooks/useVerifications";
 import { FileText, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -45,6 +47,8 @@ export interface VerificationResult {
 
 const Index = () => {
   const [currentVerificationResult, setCurrentVerificationResult] = useState<VerificationResult | null>(null);
+  const [selectedVerificationForPriorAuth, setSelectedVerificationForPriorAuth] = useState<VerificationResult | null>(null);
+  const [isPriorAuthModalOpen, setIsPriorAuthModalOpen] = useState(false);
   const { verifications, createVerification, isCreating, error: verificationsError } = useVerifications();
   const { toast } = useToast();
 
@@ -128,6 +132,17 @@ const Index = () => {
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const handlePriorAuthClick = (verification: VerificationResult) => {
+    console.log('Opening prior auth modal for verification:', verification.id);
+    setSelectedVerificationForPriorAuth(verification);
+    setIsPriorAuthModalOpen(true);
+  };
+
+  const closePriorAuthModal = () => {
+    setIsPriorAuthModalOpen(false);
+    setSelectedVerificationForPriorAuth(null);
   };
 
   return (
@@ -254,9 +269,20 @@ const Index = () => {
                               </p>
                             </div>
                           </div>
-                          <Badge className={getStatusColor(verification.status)}>
-                            {verification.status.replace('_', ' ').toUpperCase()}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge className={getStatusColor(verification.status)}>
+                              {verification.status.replace('_', ' ').toUpperCase()}
+                            </Badge>
+                            {verification.status === 'requires_auth' && (
+                              <Button 
+                                size="sm"
+                                className="bg-yellow-600 hover:bg-yellow-700"
+                                onClick={() => handlePriorAuthClick(verification)}
+                              >
+                                Initiate Prior Auth
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <p className="text-sm text-gray-500">
                           {new Date(verification.timestamp).toLocaleString()}
@@ -274,6 +300,15 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Prior Auth Modal for Results Tab */}
+      {selectedVerificationForPriorAuth && (
+        <PriorAuthModal
+          isOpen={isPriorAuthModalOpen}
+          onClose={closePriorAuthModal}
+          verification={selectedVerificationForPriorAuth}
+        />
+      )}
     </div>
   );
 };
