@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PatientForm from "@/components/PatientForm";
 import VerificationResults from "@/components/VerificationResults";
 import AuditLog from "@/components/AuditLog";
-import AuthButton from "@/components/AuthButton";
 import { FileText, CheckCircle, AlertCircle, Clock } from "lucide-react";
 
 export interface PatientData {
@@ -138,14 +137,11 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-teal-50">
       <div className="container mx-auto px-4 py-8">
-        {/* Header with Auth Button */}
+        {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <FileText className="h-8 w-8 text-blue-600" />
-              <h1 className="text-3xl font-bold text-gray-900">Pre-visit Insurance Verification</h1>
-            </div>
-            <AuthButton />
+          <div className="flex items-center gap-3 mb-4">
+            <FileText className="h-8 w-8 text-blue-600" />
+            <h1 className="text-3xl font-bold text-gray-900">Pre-visit Insurance Verification</h1>
           </div>
           <p className="text-gray-600 text-lg">Streamline patient eligibility verification and appointment management</p>
         </div>
