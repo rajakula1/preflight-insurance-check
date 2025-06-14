@@ -9,7 +9,81 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string | null
+          department: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          department?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          department?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      verification_requests: {
+        Row: {
+          created_at: string | null
+          group_number: string | null
+          id: string
+          insurance_company: string
+          patient_dob: string
+          patient_first_name: string
+          patient_last_name: string
+          policy_number: string
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+          verification_result: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          group_number?: string | null
+          id?: string
+          insurance_company: string
+          patient_dob: string
+          patient_first_name: string
+          patient_last_name: string
+          policy_number: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          verification_result?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          group_number?: string | null
+          id?: string
+          insurance_company?: string
+          patient_dob?: string
+          patient_first_name?: string
+          patient_last_name?: string
+          policy_number?: string
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          verification_result?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
