@@ -1,73 +1,200 @@
-# Welcome to your Lovable project
+
+# Healthcare Insurance Verification System
 
 ## Project info
 
 **URL**: https://lovable.dev/projects/4a4198c5-ff20-404f-a83e-cf254b7e03e6
 
-## How can I edit this code?
+## Overview
 
-There are several ways of editing your application.
+A comprehensive healthcare insurance verification system built with React, TypeScript, and Supabase. This application provides AI-powered insurance verification, prior authorization management, and HIPAA-compliant audit logging for healthcare providers.
 
-**Use Lovable**
+## Key Features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/4a4198c5-ff20-404f-a83e-cf254b7e03e6) and start prompting.
+### 🔍 AI-Powered Insurance Verification
+- **Automated Verification**: Uses AI (Gemini) to verify patient insurance eligibility in real-time
+- **Multiple Insurance Providers**: Supports verification across various insurance companies
+- **Intelligent Status Detection**: Automatically determines coverage status (eligible, ineligible, requires authorization)
+- **Smart Recommendations**: Provides next steps and actionable insights based on verification results
 
-Changes made via Lovable will be committed automatically to this repo.
+### 🏥 Prior Authorization Management
+- **Automated Prior Auth Requests**: Streamlined submission of prior authorization requests
+- **Clinical Justification**: Built-in forms for medical necessity documentation
+- **Urgency Levels**: Support for routine, urgent, and STAT authorization requests
+- **Real-time Status Tracking**: Monitor authorization status and approval workflow
 
-**Use your preferred IDE**
+### 🔒 HIPAA Compliance & Security
+- **Comprehensive Audit Logging**: All PHI access and modifications are automatically logged
+- **Data Masking**: Sensitive information is masked by default with reveal-on-demand
+- **Access Control**: Role-based permissions for different user types (admin, staff, manager, user)
+- **Data Retention Policies**: Automated enforcement of HIPAA-required data retention periods (7 years)
+- **Encryption Support**: Built-in PHI encryption and decryption capabilities
+- **Compliance Monitoring**: Real-time compliance status tracking and violation detection
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 📊 Analytics & Reporting
+- **Compliance Reports**: Generate detailed HIPAA compliance reports
+- **Audit Trail Analysis**: Track unauthorized access attempts and data exports
+- **Performance Metrics**: Monitor verification success rates and processing times
+- **Data Retention Monitoring**: Identify records exceeding retention periods
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### 🔗 Healthcare Integrations
+- **FHIR Compatibility**: Ready for FHIR-compliant data exchange
+- **EHR Integration**: Designed to integrate with Electronic Health Record systems
+- **Notification Services**: Email and Slack notifications for critical events
+- **Real-time Sync**: Automatic data synchronization across healthcare systems
 
-Follow these steps:
+## Security Features
+
+### HIPAA Audit Logging
+- **Granular Tracking**: Every view, create, update, delete, export, and print action is logged
+- **IP Address Tracking**: Records client IP and user agent for security analysis
+- **Error Logging**: Captures failed access attempts for security monitoring
+- **Timestamp Precision**: All actions timestamped with timezone awareness
+
+### Data Protection
+- **PHI Masking**: Automatic masking of SSN, policy numbers, phone numbers, and email addresses
+- **Secure Components**: HIPAA-compliant wrapper components for sensitive data display
+- **Access Validation**: Real-time permission checking before displaying PHI
+- **Encryption Ready**: Built-in support for AES-256 encryption (production-ready)
+
+### User Access Control
+- **Role-Based Permissions**: 
+  - Admin: Full access to all functions
+  - Staff: View, create, update, export permissions
+  - Manager: View, export, print permissions
+  - User: View-only access
+- **Real-time Validation**: Permissions checked on every sensitive operation
+
+## Technical Architecture
+
+### Frontend Technologies
+- **React 18** with TypeScript for type-safe development
+- **Vite** for fast development and building
+- **Tailwind CSS** for responsive, utility-first styling
+- **shadcn/ui** for consistent, accessible UI components
+- **React Query** for efficient data fetching and caching
+- **React Router** for client-side routing
+
+### Backend & Database
+- **Supabase** for backend-as-a-service
+- **PostgreSQL** for robust, ACID-compliant data storage
+- **Row Level Security (RLS)** for database-level access control
+- **Edge Functions** for serverless AI processing
+- **Real-time Subscriptions** for live data updates
+
+### AI & External Services
+- **Google Gemini AI** for intelligent insurance verification
+- **FHIR Integration** (configurable) for healthcare data standards
+- **Email/Slack Notifications** for workflow automation
+
+## Database Schema
+
+### Core Tables
+- `verification_requests`: Stores insurance verification data and results
+- `hipaa_audit_logs`: Comprehensive audit trail for all PHI access
+- `profiles`: User profile and role management
+
+### Security Functions
+- `insert_hipaa_audit_log()`: Secure audit log insertion
+- `get_hipaa_audit_logs()`: Filtered audit log retrieval with RLS
+- `handle_new_user()`: Automatic profile creation on user signup
+
+## Getting Started
+
+### Prerequisites
+- Node.js & npm ([install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- Supabase account for backend services
+- Google Gemini API key for AI verification
+
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone <YOUR_GIT_URL>
 
-# Step 2: Navigate to the project directory.
+# Navigate to project directory
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
+# Install dependencies
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Environment Setup
+1. Create a Supabase project
+2. Run the provided SQL migrations in your Supabase dashboard
+3. Set up the following secrets in your Supabase project:
+   - `GEMINI_API_KEY`: Your Google Gemini API key
+   - `OPENAI_API_KEY`: OpenAI API key (optional, for additional AI features)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Database Setup
+Execute the following migrations in your Supabase SQL editor:
+1. `20250614191328-9e1e3f19-5657-4d2a-8172-a74b582bff5c.sql` - Creates HIPAA audit logs table
+2. `20250614195000_create_hipaa_functions.sql` - Creates HIPAA audit functions
 
-**Use GitHub Codespaces**
+## Usage
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Insurance Verification Workflow
+1. **Patient Data Entry**: Input patient demographics and insurance information
+2. **AI Verification**: System automatically verifies coverage using AI
+3. **Results Review**: Review verification status and AI-generated insights
+4. **Action Items**: Follow recommended next steps based on verification results
 
-## What technologies are used for this project?
+### Prior Authorization Process
+1. **Initiate Request**: Start from verification results requiring authorization
+2. **Clinical Documentation**: Provide medical necessity justification
+3. **Submission**: Automated submission to insurance provider
+4. **Tracking**: Monitor authorization status and approval timeline
 
-This project is built with:
+### HIPAA Compliance Monitoring
+1. **Automatic Logging**: All PHI access is automatically logged
+2. **Compliance Dashboard**: Monitor compliance status and violations
+3. **Audit Reports**: Generate detailed compliance reports for review
+4. **Data Retention**: Automated enforcement of retention policies
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Deployment
 
-## How can I deploy this project?
+### Lovable Platform
+Simply click the **Publish** button in the top right of the Lovable editor to deploy your application.
 
-Simply open [Lovable](https://lovable.dev/projects/4a4198c5-ff20-404f-a83e-cf254b7e03e6) and click on Share -> Publish.
+### Custom Domain
+Connect a custom domain by navigating to Project > Settings > Domains in Lovable (requires paid plan).
 
-## Can I connect a custom domain to my Lovable project?
+## Security Considerations
 
-Yes, you can!
+### Production Deployment
+- Replace placeholder encryption with AES-256 encryption
+- Implement proper IP address detection for audit logs
+- Set up secure environment variable management
+- Configure SSL/TLS certificates for data in transit
+- Implement backup and disaster recovery procedures
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Compliance Requirements
+- Regular audit log reviews and compliance assessments
+- Staff training on HIPAA requirements and system usage
+- Incident response procedures for security breaches
+- Regular security vulnerability assessments
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## Support & Documentation
+
+- **Lovable Documentation**: [docs.lovable.dev](https://docs.lovable.dev/)
+- **Discord Community**: [Lovable Discord](https://discord.com/channels/1119885301872070706/1280461670979993613)
+- **Video Tutorials**: [YouTube Playlist](https://www.youtube.com/watch?v=9KHLTZaJcR8&list=PLbVHz4urQBZkJiAWdG8HWoJTdgEysigIO)
+
+## License
+
+This project is built for healthcare providers and must comply with HIPAA regulations. Ensure proper security measures and compliance procedures are in place before handling real patient data.
+
+## Contributing
+
+When contributing to this project, please ensure:
+- All new features maintain HIPAA compliance
+- PHI handling follows established security patterns
+- Audit logging is implemented for any new data access
+- Changes are tested for security vulnerabilities
+
+---
+
+**Important**: This system handles Protected Health Information (PHI). Ensure all deployment and usage complies with HIPAA regulations and your organization's security policies.
