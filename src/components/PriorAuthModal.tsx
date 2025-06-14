@@ -21,7 +21,7 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     serviceRequested: 'Medical Consultation',
-    urgency: 'routine' as const,
+    urgency: 'routine' as 'routine' | 'urgent' | 'stat',
     clinicalJustification: '',
     requestedBy: 'Dr. Provider',
   });
