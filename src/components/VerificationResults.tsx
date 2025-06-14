@@ -7,6 +7,8 @@ import { Separator } from "@/components/ui/separator";
 import { CheckCircle, AlertCircle, Clock, DollarSign, Calendar, Users, FileText, Loader2, Brain, MessageCircle } from "lucide-react";
 import { VerificationResult } from "@/pages/Index";
 import PriorAuthModal from "./PriorAuthModal";
+import HIPAAComplianceWrapper from "./HIPAAComplianceWrapper";
+import SecurePatientData from "./SecurePatientData";
 
 interface VerificationResultsProps {
   result: VerificationResult | null;
@@ -17,6 +19,7 @@ interface VerificationResultsProps {
 
 const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor }: VerificationResultsProps) => {
   const [isPriorAuthModalOpen, setIsPriorAuthModalOpen] = useState(false);
+  const [showSensitiveData, setShowSensitiveData] = useState(false);
 
   const handlePriorAuthClick = () => {
     console.log('Prior Auth button clicked for verification:', result?.id);
@@ -67,7 +70,11 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
   };
 
   return (
-    <>
+    <HIPAAComplianceWrapper
+      resourceType="verification"
+      resourceId={result.id}
+      action="view"
+    >
       <Card className="w-full">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -101,6 +108,17 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
               <Separator />
             </>
           )}
+
+          {/* Secure Patient Information */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <SecurePatientData 
+              patient={result.patient}
+              showSensitive={showSensitiveData}
+              onToggleSensitive={() => setShowSensitiveData(!showSensitiveData)}
+            />
+          </div>
+
+          <Separator />
 
           {/* Coverage Status */}
           <div className="space-y-3">
@@ -250,7 +268,7 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
               <p>Verification ID: {result.id}</p>
               <p>Timestamp: {new Date(result.timestamp).toLocaleString()}</p>
               <p>Patient: {result.patient.firstName} {result.patient.lastName} (DOB: {result.patient.dob})</p>
-              <p>Insurance: {result.patient.insuranceCompany} - Policy: {result.patient.policyNumber}</p>
+              <p>Insurance: {result.patient.insuranceCompany}</p>
               <p className="flex items-center gap-1">
                 <Brain className="h-3 w-3" />
                 Verified using AI Agent
@@ -260,13 +278,21 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
         </CardContent>
       </Card>
 
-      {/* Prior Auth Modal */}
-      <PriorAuthModal
-        isOpen={isPriorAuthModalOpen}
-        onClose={() => setIsPriorAuthModalOpen(false)}
-        verification={result}
-      />
-    </>
+      {/* Prior Auth Modal with HIPAA Compliance */}
+      {isPriorAuthModalOpen && (
+        <HIPAAComplianceWrapper
+          resourceType="prior_auth"
+          resourceId={`${result.id}-prior-auth`}
+          action="create"
+        >
+          <PriorAuthModal
+            isOpen={isPriorAuthModalOpen}
+            onClose={() => setIsPriorAuthModalOpen(false)}
+            verification={result}
+          />
+        </HIPAAComplianceWrapper>
+      )}
+    </HIPAAComplianceWrapper>
   );
 };
 

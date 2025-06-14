@@ -11,6 +11,8 @@ import { VerificationResult } from "@/pages/Index";
 import PriorAuthService, { PriorAuthRequest } from "@/services/priorAuthService";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from '@tanstack/react-query';
+import { useHIPAACompliance } from '@/hooks/useHIPAACompliance';
+import SecurePatientData from './SecurePatientData';
 
 interface PriorAuthModalProps {
   isOpen: boolean;
@@ -20,6 +22,7 @@ interface PriorAuthModalProps {
 
 const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSensitiveData, setShowSensitiveData] = useState(false);
   const [formData, setFormData] = useState({
     serviceRequested: 'Medical Consultation',
     urgency: 'routine' as 'routine' | 'urgent' | 'stat',
@@ -28,6 +31,7 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
   });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { logAccess } = useHIPAACompliance();
   const priorAuthService = new PriorAuthService();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,6 +40,9 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
 
     try {
       console.log('Initiating prior authorization for:', verification.patient.firstName, verification.patient.lastName);
+
+      // Log HIPAA audit trail for prior auth creation
+      await logAccess('create', 'prior_auth', verification.id, true);
 
       // Create the prior auth request
       const priorAuthRequest = await priorAuthService.createPriorAuthRequest(verification, formData);
@@ -50,6 +57,9 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
         });
         
         console.log('Prior auth successfully submitted with auth number:', result.authNumber);
+        
+        // Log successful submission
+        await logAccess('create', 'prior_auth', priorAuthRequest.id!, true);
       } else {
         toast({
           title: "Additional Information Required",
@@ -58,6 +68,9 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
         });
         
         console.log('Prior auth needs more info:', result.message);
+        
+        // Log submission that needs more info
+        await logAccess('create', 'prior_auth', priorAuthRequest.id!, false, result.message);
       }
 
       // Refresh the verifications data to show updated status
@@ -70,6 +83,10 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
 
     } catch (error) {
       console.error('Error submitting prior authorization:', error);
+      
+      // Log failed submission
+      await logAccess('create', 'prior_auth', verification.id, false, error instanceof Error ? error.message : 'Unknown error');
+      
       toast({
         title: "Submission Failed",
         description: "There was an error submitting the prior authorization request.",
@@ -95,27 +112,13 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Patient Info (Read-only) */}
-          <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-            <h3 className="font-semibold text-sm text-gray-700">Patient Information</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Name: </span>
-                <span className="font-medium">{verification.patient.firstName} {verification.patient.lastName}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">DOB: </span>
-                <span className="font-medium">{verification.patient.dob}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Insurance: </span>
-                <span className="font-medium">{verification.patient.insuranceCompany}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">Policy: </span>
-                <span className="font-medium">{verification.patient.policyNumber}</span>
-              </div>
-            </div>
+          {/* Secure Patient Info */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <SecurePatientData 
+              patient={verification.patient}
+              showSensitive={showSensitiveData}
+              onToggleSensitive={() => setShowSensitiveData(!showSensitiveData)}
+            />
           </div>
 
           {/* Service Requested */}
@@ -168,6 +171,12 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
               placeholder="Dr. Provider Name"
               required
             />
+          </div>
+
+          {/* HIPAA Notice */}
+          <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800">
+            <p className="font-medium">HIPAA Privacy Notice</p>
+            <p>This prior authorization request contains protected health information. All access and modifications are logged for security audit purposes.</p>
           </div>
 
           {/* Action Buttons */}
