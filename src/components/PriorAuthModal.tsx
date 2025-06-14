@@ -10,6 +10,7 @@ import { Loader2, FileText, Clock } from "lucide-react";
 import { VerificationResult } from "@/pages/Index";
 import PriorAuthService, { PriorAuthRequest } from "@/services/priorAuthService";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from '@tanstack/react-query';
 
 interface PriorAuthModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
     requestedBy: 'Dr. Provider',
   });
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const priorAuthService = new PriorAuthService();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +45,7 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
       
       if (result.success) {
         toast({
-          title: "Prior Authorization Submitted",
+          title: "Prior Authorization Approved",
           description: result.message,
         });
         
@@ -58,7 +60,14 @@ const PriorAuthModal = ({ isOpen, onClose, verification }: PriorAuthModalProps) 
         console.log('Prior auth needs more info:', result.message);
       }
 
-      onClose();
+      // Refresh the verifications data to show updated status
+      await queryClient.invalidateQueries({ queryKey: ['verifications'] });
+      
+      // Close the modal after a brief delay to show the toast
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+
     } catch (error) {
       console.error('Error submitting prior authorization:', error);
       toast({

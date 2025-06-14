@@ -73,7 +73,42 @@ class PriorAuthService {
     }
   }
 
-  async submitToInsurance(priorAuthRequest: PriorAuthRequest): Promise<{ success: boolean; message: string; authNumber?: string }> {
+  async updateVerificationStatus(verificationId: string, newStatus: string, priorAuthId?: string): Promise<void> {
+    try {
+      console.log('Updating verification status to:', newStatus, 'for verification:', verificationId);
+      
+      const updateData: any = {
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If we have a prior auth ID, include it in the verification result
+      if (priorAuthId) {
+        updateData.verification_result = {
+          priorAuthRequestId: priorAuthId,
+          priorAuthStatus: 'submitted',
+          priorAuthSubmittedAt: new Date().toISOString()
+        };
+      }
+
+      const { error } = await supabase
+        .from('verification_requests')
+        .update(updateData)
+        .eq('id', verificationId);
+
+      if (error) {
+        console.error('Error updating verification status:', error);
+        throw error;
+      } else {
+        console.log('Verification status updated successfully');
+      }
+    } catch (error) {
+      console.error('Failed to update verification status:', error);
+      throw error;
+    }
+  }
+
+  async submitToInsurance(priorAuthRequest: PriorAuthRequest): Promise<{ success: boolean; message: string; authNumber?: string; newStatus?: string }> {
     console.log('Submitting prior auth request to insurance:', priorAuthRequest.insuranceCompany);
 
     // Simulate insurance submission
@@ -83,17 +118,25 @@ class PriorAuthService {
       const authNumber = `AUTH-${Date.now()}`;
       console.log('Prior authorization approved with number:', authNumber);
       
+      // Update the verification status to reflect the approved prior auth
+      await this.updateVerificationStatus(priorAuthRequest.verificationId, 'eligible', priorAuthRequest.id);
+      
       return {
         success: true,
         message: `Prior authorization approved. Authorization number: ${authNumber}`,
-        authNumber
+        authNumber,
+        newStatus: 'eligible'
       };
     } else {
       console.log('Prior authorization requires more information');
       
+      // Update the verification status to reflect additional info needed
+      await this.updateVerificationStatus(priorAuthRequest.verificationId, 'requires_auth', priorAuthRequest.id);
+      
       return {
         success: false,
-        message: 'Prior authorization requires additional clinical documentation. Please provide more details about the medical necessity.'
+        message: 'Prior authorization requires additional clinical documentation. Please provide more details about the medical necessity.',
+        newStatus: 'requires_auth'
       };
     }
   }
