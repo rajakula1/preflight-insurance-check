@@ -42,13 +42,27 @@ export const useVerifications = () => {
 
         if (error) {
           console.error('AI verification error:', error);
-          throw error;
+          // Provide more specific error message
+          if (error.message?.includes('Too Many Requests')) {
+            throw new Error('AI service is currently busy. Please wait a moment and try again.');
+          } else if (error.message?.includes('Edge Function returned a non-2xx status code')) {
+            throw new Error('Verification service is temporarily unavailable. Please try again later.');
+          }
+          throw new Error(error.message || 'Verification failed');
         }
 
         console.log('AI verification completed:', data);
         return data;
       } catch (error) {
         console.error('Error in AI verification:', error);
+        // Improve error messages for better user experience
+        if (error instanceof Error) {
+          if (error.message.includes('Too Many Requests') || error.message.includes('429')) {
+            throw new Error('AI service is currently busy due to high demand. Please wait a moment and try again.');
+          } else if (error.message.includes('401') || error.message.includes('unauthorized')) {
+            throw new Error('AI service configuration issue. Please contact support.');
+          }
+        }
         throw error;
       }
     },

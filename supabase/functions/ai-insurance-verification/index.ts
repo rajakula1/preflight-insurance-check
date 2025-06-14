@@ -14,6 +14,50 @@ const corsHeaders = {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Retry function for OpenAI API calls
+async function callOpenAIWithRetry(payload: any, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`OpenAI API attempt ${attempt}/${maxRetries}`);
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.status === 429) {
+        // Rate limited - wait before retry
+        const waitTime = Math.pow(2, attempt) * 1000; // Exponential backoff
+        console.log(`Rate limited, waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        continue;
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`OpenAI API error (${response.status}):`, errorText);
+        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error(`Attempt ${attempt} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Wait before retry (exponential backoff)
+      const waitTime = Math.pow(2, attempt) * 1000;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -23,88 +67,82 @@ serve(async (req) => {
     const { patientData } = await req.json();
     console.log('AI verification started for patient:', patientData);
 
-    // Create the AI prompt for insurance verification
-    const aiPrompt = `You are an expert insurance verification AI agent. Analyze the following patient insurance information and provide a comprehensive verification assessment.
+    // Validate required fields
+    if (!patientData || !patientData.firstName || !patientData.lastName || !patientData.insuranceCompany) {
+      throw new Error('Missing required patient data fields');
+    }
 
-Patient Information:
-- Name: ${patientData.firstName} ${patientData.lastName}
-- Date of Birth: ${patientData.dob}
-- Insurance Company: ${patientData.insuranceCompany}
-- Policy Number: ${patientData.policyNumber}
-- Group Number: ${patientData.groupNumber || 'Not provided'}
-- Member ID: ${patientData.memberID}
-- Subscriber Name: ${patientData.subscriberName || 'Same as patient'}
+    // Check if OpenAI API key is configured
+    if (!openAIApiKey) {
+      console.error('OpenAI API key not configured');
+      throw new Error('AI service not configured. Please contact administrator.');
+    }
 
-Please analyze this information and provide:
-1. Verification status (eligible, ineligible, requires_auth, or error)
-2. Coverage details including active status, in-network status, copay, deductible
-3. Whether prior authorization is required
-4. Any potential issues or red flags
-5. Recommended next steps
+    // Create a more focused AI prompt for insurance verification
+    const aiPrompt = `You are an expert insurance verification specialist. Analyze this patient insurance information and provide a realistic verification assessment.
 
-Be realistic in your assessment based on common insurance verification scenarios. Consider factors like:
-- Completeness of information provided
-- Common insurance company patterns
-- Typical coverage scenarios
-- Potential verification challenges
+Patient: ${patientData.firstName} ${patientData.lastName}
+DOB: ${patientData.dob}
+Insurance: ${patientData.insuranceCompany}
+Policy: ${patientData.policyNumber}
+Member ID: ${patientData.memberID}
+${patientData.groupNumber ? `Group: ${patientData.groupNumber}` : ''}
+${patientData.subscriberName ? `Subscriber: ${patientData.subscriberName}` : ''}
 
-Respond in the following JSON format:
+Provide a verification assessment with these considerations:
+- Information completeness and validity
+- Common insurance verification scenarios
+- Realistic coverage details based on the insurance company
+- Potential issues or requirements
+
+Respond ONLY with valid JSON in this exact format:
 {
   "status": "eligible|ineligible|requires_auth|error",
   "coverage": {
     "active": boolean,
     "effectiveDate": "YYYY-MM-DD or null",
-    "terminationDate": "YYYY-MM-DD or null", 
-    "copay": number or null,
-    "deductible": number or null,
+    "terminationDate": "YYYY-MM-DD or null",
+    "copay": number_or_null,
+    "deductible": number_or_null,
     "inNetwork": boolean,
     "priorAuthRequired": boolean
   },
-  "reasoning": "Detailed explanation of the verification decision",
-  "recommendations": ["array", "of", "next", "steps"],
-  "additionalQuestions": ["questions", "to", "ask", "patient", "if", "needed"]
+  "reasoning": "Brief explanation of verification decision",
+  "recommendations": ["action1", "action2"],
+  "additionalQuestions": ["question1_if_needed"]
 }`;
 
-    // Call OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an expert insurance verification specialist with years of experience in healthcare insurance eligibility verification. Provide accurate, professional assessments.'
-          },
-          {
-            role: 'user',
-            content: aiPrompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 1500
-      }),
+    // Call OpenAI API with retry logic
+    const aiResponse = await callOpenAIWithRetry({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert insurance verification specialist. Always respond with valid JSON only.'
+        },
+        {
+          role: 'user',
+          content: aiPrompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 1000
     });
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.statusText}`);
-    }
-
-    const aiResponse = await response.json();
     const aiContent = aiResponse.choices[0].message.content;
-    
     console.log('AI response received:', aiContent);
 
-    // Parse AI response
+    // Parse AI response with better error handling
     let verificationResult;
     try {
-      verificationResult = JSON.parse(aiContent);
+      // Clean the response to ensure it's valid JSON
+      const cleanedContent = aiContent.trim().replace(/```json\n?|\n?```/g, '');
+      verificationResult = JSON.parse(cleanedContent);
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
-      // Fallback result
+      console.error('Raw AI content:', aiContent);
+      
+      // Fallback result when AI parsing fails
       verificationResult = {
         status: 'error',
         coverage: {
@@ -116,8 +154,28 @@ Respond in the following JSON format:
           inNetwork: false,
           priorAuthRequired: false
         },
-        reasoning: 'AI analysis failed to parse properly',
-        recommendations: ['Manual verification required', 'Contact insurance provider directly'],
+        reasoning: 'AI analysis could not be processed properly. Manual verification recommended.',
+        recommendations: ['Contact insurance provider directly', 'Verify patient information', 'Manual review required'],
+        additionalQuestions: ['Please confirm all insurance details are correct']
+      };
+    }
+
+    // Validate the parsed result structure
+    if (!verificationResult.status || !verificationResult.coverage || !verificationResult.reasoning) {
+      console.error('Invalid AI response structure:', verificationResult);
+      verificationResult = {
+        status: 'error',
+        coverage: {
+          active: false,
+          effectiveDate: null,
+          terminationDate: null,
+          copay: null,
+          deductible: null,
+          inNetwork: false,
+          priorAuthRequired: false
+        },
+        reasoning: 'AI response was incomplete. Manual verification required.',
+        recommendations: ['Manual verification required', 'Contact insurance provider'],
         additionalQuestions: []
       };
     }
@@ -138,8 +196,8 @@ Respond in the following JSON format:
         verification_result: {
           ...verificationResult.coverage,
           aiReasoning: verificationResult.reasoning,
-          recommendations: verificationResult.recommendations,
-          additionalQuestions: verificationResult.additionalQuestions
+          recommendations: verificationResult.recommendations || [],
+          additionalQuestions: verificationResult.additionalQuestions || []
         }
       })
       .select()
@@ -161,10 +219,10 @@ Respond in the following JSON format:
       coverage: verificationResult.coverage,
       aiInsights: {
         reasoning: verificationResult.reasoning,
-        recommendations: verificationResult.recommendations,
-        additionalQuestions: verificationResult.additionalQuestions
+        recommendations: verificationResult.recommendations || [],
+        additionalQuestions: verificationResult.additionalQuestions || []
       },
-      nextSteps: verificationResult.recommendations
+      nextSteps: verificationResult.recommendations || []
     };
 
     return new Response(JSON.stringify(finalResult), {
@@ -173,10 +231,15 @@ Respond in the following JSON format:
 
   } catch (error) {
     console.error('Error in AI insurance verification:', error);
-    return new Response(JSON.stringify({ 
+    
+    // Return a structured error response
+    const errorResponse = {
       error: error.message,
-      status: 'error'
-    }), {
+      status: 'error',
+      details: 'Please check the function logs for more information'
+    };
+
+    return new Response(JSON.stringify(errorResponse), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
