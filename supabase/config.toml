@@ -1,1 +1,28 @@
+
 project_id = "zugpqdenystyxerorggo"
+
+[auth]
+enabled = true
+# Enable email confirmations for better security
+enable_confirmations = true
+# Set session timeout to 24 hours
+jwt_expiry = 86400
+
+[auth.email]
+# Enable secure email authentication
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+
+[database]
+# Enable statement timeout to prevent long-running queries
+statement_timeout = "60s"
+# Enable connection pooling
+pooler_enabled = true
+
+[functions]
+# Global function configuration
+verify_jwt = true
+
+[functions.ai-insurance-verification]
+verify_jwt = false
