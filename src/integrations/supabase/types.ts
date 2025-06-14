@@ -45,11 +45,13 @@ export type Database = {
           group_number: string | null
           id: string
           insurance_company: string
+          member_id: string | null
           patient_dob: string
           patient_first_name: string
           patient_last_name: string
           policy_number: string
           status: string | null
+          subscriber_name: string | null
           updated_at: string | null
           user_id: string | null
           verification_result: Json | null
@@ -59,11 +61,13 @@ export type Database = {
           group_number?: string | null
           id?: string
           insurance_company: string
+          member_id?: string | null
           patient_dob: string
           patient_first_name: string
           patient_last_name: string
           policy_number: string
           status?: string | null
+          subscriber_name?: string | null
           updated_at?: string | null
           user_id?: string | null
           verification_result?: Json | null
@@ -73,11 +77,13 @@ export type Database = {
           group_number?: string | null
           id?: string
           insurance_company?: string
+          member_id?: string | null
           patient_dob?: string
           patient_first_name?: string
           patient_last_name?: string
           policy_number?: string
           status?: string | null
+          subscriber_name?: string | null
           updated_at?: string | null
           user_id?: string | null
           verification_result?: Json | null

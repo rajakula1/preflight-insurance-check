@@ -6,7 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PatientForm from "@/components/PatientForm";
 import VerificationResults from "@/components/VerificationResults";
 import AuditLog from "@/components/AuditLog";
+import { useVerifications } from "@/hooks/useVerifications";
 import { FileText, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export interface PatientData {
   firstName: string;
@@ -37,70 +39,30 @@ export interface VerificationResult {
 }
 
 const Index = () => {
-  const [currentPatient, setCurrentPatient] = useState<PatientData | null>(null);
-  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
-  const [verifications, setVerifications] = useState<VerificationResult[]>([]);
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [currentVerificationResult, setCurrentVerificationResult] = useState<VerificationResult | null>(null);
+  const { verifications, createVerification, isCreating } = useVerifications();
+  const { toast } = useToast();
 
   const handlePatientSubmit = async (patientData: PatientData) => {
-    setCurrentPatient(patientData);
-    setIsVerifying(true);
-    
-    console.log("Starting verification for patient:", patientData);
-    
-    // Simulate API call to clearinghouse
     try {
-      const result = await mockEligibilityVerification(patientData);
-      setVerificationResult(result);
-      setVerifications(prev => [result, ...prev]);
+      console.log("Starting verification for patient:", patientData);
+      
+      const result = await createVerification(patientData);
+      setCurrentVerificationResult(result);
+      
       console.log("Verification completed:", result);
+      
+      toast({
+        title: "Verification Complete",
+        description: `Insurance verification for ${patientData.firstName} ${patientData.lastName} has been processed.`,
+      });
     } catch (error) {
       console.error("Verification failed:", error);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const mockEligibilityVerification = async (patient: PatientData): Promise<VerificationResult> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock different scenarios based on patient data
-    const scenarios = ['eligible', 'ineligible', 'requires_auth', 'error'] as const;
-    const status = scenarios[Math.floor(Math.random() * scenarios.length)];
-    
-    const result: VerificationResult = {
-      id: `VER-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      patient,
-      status,
-      coverage: {
-        active: status !== 'ineligible',
-        effectiveDate: '2024-01-01',
-        terminationDate: status === 'ineligible' ? '2024-05-30' : undefined,
-        copay: status === 'eligible' ? 25 : undefined,
-        deductible: status === 'eligible' ? 1500 : undefined,
-        inNetwork: status === 'eligible',
-        priorAuthRequired: status === 'requires_auth'
-      },
-      nextSteps: getNextSteps(status)
-    };
-    
-    return result;
-  };
-
-  const getNextSteps = (status: VerificationResult['status']): string[] => {
-    switch (status) {
-      case 'eligible':
-        return ['Auto-confirm appointment', 'Send confirmation to patient', 'Update EHR record'];
-      case 'ineligible':
-        return ['Contact patient about coverage', 'Discuss payment options', 'Reschedule if needed'];
-      case 'requires_auth':
-        return ['Initiate prior authorization', 'Contact insurance provider', 'Hold appointment pending approval'];
-      case 'error':
-        return ['Manual verification required', 'Contact clearinghouse support', 'Retry verification'];
-      default:
-        return [];
+      toast({
+        title: "Verification Failed",
+        description: "There was an error processing the insurance verification. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -213,12 +175,12 @@ const Index = () => {
 
           <TabsContent value="verification" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PatientForm onSubmit={handlePatientSubmit} isLoading={isVerifying} />
+              <PatientForm onSubmit={handlePatientSubmit} isLoading={isCreating} />
               
-              {(verificationResult || isVerifying) && (
+              {(currentVerificationResult || isCreating) && (
                 <VerificationResults 
-                  result={verificationResult} 
-                  isLoading={isVerifying}
+                  result={currentVerificationResult} 
+                  isLoading={isCreating}
                   getStatusIcon={getStatusIcon}
                   getStatusColor={getStatusColor}
                 />
