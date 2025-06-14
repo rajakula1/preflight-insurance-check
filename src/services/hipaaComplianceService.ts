@@ -41,7 +41,7 @@ class HIPAAComplianceService {
         user_agent: clientInfo.userAgent,
       };
 
-      // Use raw SQL query to insert into hipaa_audit_logs since it's not in the generated types yet
+      // Use RPC function to insert audit log
       const { error } = await supabase.rpc('insert_hipaa_audit_log', {
         p_user_id: auditLog.user_id,
         p_action: auditLog.action,
@@ -66,10 +66,20 @@ class HIPAAComplianceService {
 
   private async fallbackAuditLog(auditLog: Omit<HIPAAAuditLog, 'id'>): Promise<void> {
     try {
-      // Direct SQL insert as fallback
+      // Direct insert using the typed table from database schema
       const { error } = await supabase
-        .from('hipaa_audit_logs' as any)
-        .insert(auditLog as any);
+        .from('hipaa_audit_logs')
+        .insert({
+          user_id: auditLog.user_id,
+          action: auditLog.action,
+          resource_type: auditLog.resource_type,
+          resource_id: auditLog.resource_id,
+          ip_address: auditLog.ip_address,
+          user_agent: auditLog.user_agent,
+          timestamp: auditLog.timestamp,
+          success: auditLog.success,
+          error_message: auditLog.error_message
+        });
       
       if (error) {
         console.error('Fallback audit logging also failed:', error);
@@ -87,7 +97,7 @@ class HIPAAComplianceService {
     endDate?: string;
   }): Promise<HIPAAAuditLog[]> {
     try {
-      // Use RPC to get audit logs since the table isn't in generated types yet
+      // Use RPC to get audit logs
       const { data, error } = await supabase.rpc('get_hipaa_audit_logs', {
         p_user_id: filters?.userId || null,
         p_resource_type: filters?.resourceType || null,

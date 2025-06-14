@@ -15,12 +15,12 @@ export const useHIPAACompliance = () => {
     errorMessage?: string
   ) => {
     await hipaaService.logAccess({
-      userId: 'current_user', // Replace with actual user ID from auth
+      user_id: 'current_user', // Replace with actual user ID from auth
       action,
-      resourceType,
-      resourceId,
+      resource_type: resourceType,
+      resource_id: resourceId,
       success,
-      errorMessage,
+      error_message: errorMessage,
     });
   };
 
