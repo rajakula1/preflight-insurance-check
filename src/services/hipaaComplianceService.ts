@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface HIPAAAuditLog {
@@ -41,7 +42,7 @@ class HIPAAComplianceService {
       };
 
       // Use RPC function to insert audit log
-      const { error } = await supabase.rpc('insert_hipaa_audit_log' as any, {
+      const { error } = await (supabase as any).rpc('insert_hipaa_audit_log', {
         p_user_id: auditLog.user_id,
         p_action: auditLog.action,
         p_resource_type: auditLog.resource_type,
@@ -97,7 +98,7 @@ class HIPAAComplianceService {
   }): Promise<HIPAAAuditLog[]> {
     try {
       // Use RPC to get audit logs
-      const { data, error } = await supabase.rpc('get_hipaa_audit_logs' as any, {
+      const { data, error } = await (supabase as any).rpc('get_hipaa_audit_logs', {
         p_user_id: filters?.userId || null,
         p_resource_type: filters?.resourceType || null,
         p_action: filters?.action || null,
