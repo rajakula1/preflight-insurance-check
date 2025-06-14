@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +39,7 @@ export interface VerificationResult {
 
 const Index = () => {
   const [currentVerificationResult, setCurrentVerificationResult] = useState<VerificationResult | null>(null);
-  const { verifications, createVerification, isCreating } = useVerifications();
+  const { verifications, createVerification, isCreating, error: verificationsError } = useVerifications();
   const { toast } = useToast();
 
   const handlePatientSubmit = async (patientData: PatientData) => {
@@ -58,13 +57,22 @@ const Index = () => {
       });
     } catch (error) {
       console.error("Verification failed:", error);
+      
+      // Show more specific error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
       toast({
         title: "Verification Failed",
-        description: "There was an error processing the insurance verification. Please try again.",
+        description: `Error: ${errorMessage}. Please check the console for more details.`,
         variant: "destructive",
       });
     }
   };
+
+  // Show error state if there's an issue loading verifications
+  if (verificationsError) {
+    console.error("Error loading verifications:", verificationsError);
+  }
 
   const getStatusIcon = (status: VerificationResult['status']) => {
     switch (status) {

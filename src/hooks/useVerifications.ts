@@ -11,13 +11,19 @@ export const useVerifications = () => {
   const { data: verifications = [], isLoading, error } = useQuery({
     queryKey: ['verifications'],
     queryFn: async () => {
+      console.log('Fetching verifications from Supabase...');
       const { data, error } = await supabase
         .from('verification_requests')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching verifications:', error);
+        throw error;
+      }
 
+      console.log('Fetched verifications:', data);
+      
       // Transform database records to match our VerificationResult interface
       return data.map(transformToVerificationResult);
     },
@@ -26,46 +32,73 @@ export const useVerifications = () => {
   // Create a new verification request
   const createVerification = useMutation({
     mutationFn: async (patientData: PatientData) => {
-      // First, insert the initial request
-      const { data, error } = await supabase
-        .from('verification_requests')
-        .insert({
+      console.log('Creating verification with patient data:', patientData);
+      
+      try {
+        // First, insert the initial request
+        const insertData = {
           patient_first_name: patientData.firstName,
           patient_last_name: patientData.lastName,
           patient_dob: patientData.dob,
           insurance_company: patientData.insuranceCompany,
           policy_number: patientData.policyNumber,
-          group_number: patientData.groupNumber,
+          group_number: patientData.groupNumber || null,
           member_id: patientData.memberID,
-          subscriber_name: patientData.subscriberName,
+          subscriber_name: patientData.subscriberName || null,
           status: 'pending'
-        })
-        .select()
-        .single();
+        };
 
-      if (error) throw error;
+        console.log('Inserting data into Supabase:', insertData);
 
-      // Simulate the verification process
-      const verificationResult = await simulateVerification(patientData);
-      
-      // Update the record with the verification result
-      const { data: updatedData, error: updateError } = await supabase
-        .from('verification_requests')
-        .update({
-          status: verificationResult.status,
-          verification_result: verificationResult.coverage
-        })
-        .eq('id', data.id)
-        .select()
-        .single();
+        const { data, error } = await supabase
+          .from('verification_requests')
+          .insert(insertData)
+          .select()
+          .single();
 
-      if (updateError) throw updateError;
+        if (error) {
+          console.error('Error inserting verification request:', error);
+          throw error;
+        }
 
-      return transformToVerificationResult(updatedData);
+        console.log('Successfully inserted verification request:', data);
+
+        // Simulate the verification process
+        const verificationResult = await simulateVerification(patientData);
+        
+        console.log('Verification result:', verificationResult);
+
+        // Update the record with the verification result
+        const { data: updatedData, error: updateError } = await supabase
+          .from('verification_requests')
+          .update({
+            status: verificationResult.status,
+            verification_result: verificationResult.coverage
+          })
+          .eq('id', data.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Error updating verification request:', updateError);
+          throw updateError;
+        }
+
+        console.log('Successfully updated verification request:', updatedData);
+
+        return transformToVerificationResult(updatedData);
+      } catch (error) {
+        console.error('Error in createVerification:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
+      console.log('Verification created successfully, invalidating queries');
       queryClient.invalidateQueries({ queryKey: ['verifications'] });
     },
+    onError: (error) => {
+      console.error('Mutation error:', error);
+    }
   });
 
   return {
@@ -106,6 +139,8 @@ const transformToVerificationResult = (record: any): VerificationResult => {
 
 // Simulate verification process (same logic as before)
 const simulateVerification = async (patient: PatientData) => {
+  console.log('Simulating verification for patient:', patient);
+  
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 2000));
   
@@ -113,7 +148,7 @@ const simulateVerification = async (patient: PatientData) => {
   const scenarios = ['eligible', 'ineligible', 'requires_auth', 'error'] as const;
   const status = scenarios[Math.floor(Math.random() * scenarios.length)];
   
-  return {
+  const result = {
     status,
     coverage: {
       active: status !== 'ineligible',
@@ -125,6 +160,9 @@ const simulateVerification = async (patient: PatientData) => {
       priorAuthRequired: status === 'requires_auth'
     }
   };
+
+  console.log('Simulation result:', result);
+  return result;
 };
 
 const getNextSteps = (status: string): string[] => {
