@@ -3,7 +3,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -14,16 +14,15 @@ const corsHeaders = {
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Retry function for OpenAI API calls with better error handling
-async function callOpenAIWithRetry(payload: any, maxRetries = 3) {
+// Retry function for Gemini API calls with better error handling
+async function callGeminiWithRetry(payload: any, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`OpenAI API attempt ${attempt}/${maxRetries}`);
+      console.log(`Gemini API attempt ${attempt}/${maxRetries}`);
       
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${openAIApiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
@@ -35,7 +34,7 @@ async function callOpenAIWithRetry(payload: any, maxRetries = 3) {
         console.log(`Rate limited, waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
         
         if (attempt === maxRetries) {
-          throw new Error('OpenAI API rate limit exceeded. Please try again in a few minutes.');
+          throw new Error('Gemini API rate limit exceeded. Please try again in a few minutes.');
         }
         
         await new Promise(resolve => setTimeout(resolve, waitTime));
@@ -44,16 +43,16 @@ async function callOpenAIWithRetry(payload: any, maxRetries = 3) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`OpenAI API error (${response.status}):`, errorText);
-        throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
+        console.error(`Gemini API error (${response.status}):`, errorText);
+        throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
       
-      // Validate the response structure
-      if (!result || !result.choices || !result.choices[0] || !result.choices[0].message) {
-        console.error('Invalid OpenAI response structure:', result);
-        throw new Error('Invalid response from OpenAI API');
+      // Validate the response structure for Gemini
+      if (!result || !result.candidates || !result.candidates[0] || !result.candidates[0].content || !result.candidates[0].content.parts || !result.candidates[0].content.parts[0]) {
+        console.error('Invalid Gemini response structure:', result);
+        throw new Error('Invalid response from Gemini API');
       }
 
       return result;
@@ -85,9 +84,9 @@ serve(async (req) => {
       throw new Error('Missing required patient data fields');
     }
 
-    // Check if OpenAI API key is configured
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not configured');
+    // Check if Gemini API key is configured
+    if (!geminiApiKey) {
+      console.error('Gemini API key not configured');
       throw new Error('AI service not configured. Please contact administrator.');
     }
 
@@ -128,24 +127,24 @@ Respond ONLY with valid JSON in this exact format:
     let verificationResult;
     
     try {
-      // Call OpenAI API with retry logic
-      const aiResponse = await callOpenAIWithRetry({
-        model: 'gpt-4o-mini',
-        messages: [
+      // Call Gemini API with retry logic
+      const aiResponse = await callGeminiWithRetry({
+        contents: [
           {
-            role: 'system',
-            content: 'You are an expert insurance verification specialist. Always respond with valid JSON only.'
-          },
-          {
-            role: 'user',
-            content: aiPrompt
+            parts: [
+              {
+                text: aiPrompt
+              }
+            ]
           }
         ],
-        temperature: 0.3,
-        max_tokens: 1000
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 1000,
+        }
       });
 
-      const aiContent = aiResponse.choices[0].message.content;
+      const aiContent = aiResponse.candidates[0].content.parts[0].text;
       console.log('AI response received:', aiContent);
 
       // Parse AI response with better error handling
