@@ -1,11 +1,27 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PatientData, VerificationResult } from '@/pages/Index';
+import IntegrationService, { IntegrationConfig } from '@/services/integrationService';
+
+// Configuration for integrations - in a real app, this would come from settings
+const integrationConfig: IntegrationConfig = {
+  fhir: {
+    enabled: false, // Set to true when FHIR endpoint is configured
+    baseUrl: '', // Would be set from environment or settings
+    apiKey: '', // Would be set from environment or settings
+  },
+  notifications: {
+    emailEnabled: true,
+    slackEnabled: true,
+    slackWebhookUrl: '', // Would be set from environment or settings
+    emailRecipients: ['staff@healthcare.com'], // Would be configurable
+  },
+};
 
 export const useVerifications = () => {
   const queryClient = useQueryClient();
+  const [integrationService] = useState(() => new IntegrationService(integrationConfig));
 
   // Fetch all verification requests
   const { data: verifications = [], isLoading, error } = useQuery({
@@ -52,6 +68,10 @@ export const useVerifications = () => {
         }
 
         console.log('AI verification completed:', data);
+        
+        // Process the result through integrations
+        await integrationService.processVerificationResult(data);
+        
         return data;
       } catch (error) {
         console.error('Error in AI verification:', error);
@@ -81,6 +101,7 @@ export const useVerifications = () => {
     error,
     createVerification: createVerification.mutateAsync,
     isCreating: createVerification.isPending,
+    integrationService,
   };
 };
 

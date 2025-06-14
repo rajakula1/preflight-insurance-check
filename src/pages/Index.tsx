@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PatientForm from "@/components/PatientForm";
 import VerificationResults from "@/components/VerificationResults";
 import AuditLog from "@/components/AuditLog";
+import DashboardNotifications from "@/components/DashboardNotifications";
 import { useVerifications } from "@/hooks/useVerifications";
 import { FileText, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -56,10 +57,30 @@ const Index = () => {
       
       console.log("Verification completed:", result);
       
-      toast({
-        title: "Verification Complete",
-        description: `Insurance verification for ${patientData.firstName} ${patientData.lastName} has been processed.`,
-      });
+      // Show different toast messages based on the result
+      if (result.status === 'eligible') {
+        toast({
+          title: "Verification Complete - Eligible",
+          description: `${patientData.firstName} ${patientData.lastName} is eligible. EHR updated and confirmation sent.`,
+        });
+      } else if (result.status === 'requires_auth') {
+        toast({
+          title: "Prior Authorization Required",
+          description: `Staff has been notified to initiate prior authorization for ${patientData.firstName} ${patientData.lastName}.`,
+          variant: "destructive",
+        });
+      } else if (result.status === 'ineligible') {
+        toast({
+          title: "Coverage Ineligible",
+          description: `Staff has been notified about coverage issues for ${patientData.firstName} ${patientData.lastName}.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Verification Complete",
+          description: `Insurance verification for ${patientData.firstName} ${patientData.lastName} has been processed.`,
+        });
+      }
     } catch (error) {
       console.error("Verification failed:", error);
       
@@ -119,6 +140,11 @@ const Index = () => {
             <h1 className="text-3xl font-bold text-gray-900">Pre-visit Insurance Verification</h1>
           </div>
           <p className="text-gray-600 text-lg">Streamline patient eligibility verification and appointment management</p>
+        </div>
+
+        {/* Add Dashboard Notifications */}
+        <div className="mb-8">
+          <DashboardNotifications verifications={verifications} />
         </div>
 
         {/* Stats Overview */}
