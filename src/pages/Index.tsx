@@ -35,6 +35,11 @@ export interface VerificationResult {
     priorAuthRequired: boolean;
   };
   nextSteps: string[];
+  aiInsights?: {
+    reasoning?: string;
+    recommendations?: string[];
+    additionalQuestions?: string[];
+  };
 }
 
 const Index = () => {

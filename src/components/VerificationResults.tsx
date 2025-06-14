@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle, AlertCircle, Clock, DollarSign, Calendar, Users, FileText, Loader2 } from "lucide-react";
+import { CheckCircle, AlertCircle, Clock, DollarSign, Calendar, Users, FileText, Loader2, Brain, MessageCircle } from "lucide-react";
 import { VerificationResult } from "@/pages/Index";
 
 interface VerificationResultsProps {
@@ -20,23 +20,24 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
       <Card className="w-full">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-600" />
-            <CardTitle>Verification in Progress</CardTitle>
+            <Brain className="h-5 w-5 text-blue-600" />
+            <CardTitle>AI Verification in Progress</CardTitle>
           </div>
           <CardDescription>
-            Contacting clearinghouse for eligibility verification...
+            Our AI agent is analyzing the insurance information...
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-              <p className="text-lg font-medium text-gray-900 mb-2">Verifying Insurance Eligibility</p>
-              <p className="text-sm text-gray-600 mb-4">This may take up to 30 seconds...</p>
+              <p className="text-lg font-medium text-gray-900 mb-2">AI Insurance Verification</p>
+              <p className="text-sm text-gray-600 mb-4">Analyzing patient demographics and insurance details...</p>
               <div className="space-y-2 text-sm text-gray-500">
-                <p>• Validating patient demographics</p>
-                <p>• Querying clearinghouse API</p>
-                <p>• Processing eligibility response</p>
+                <p>• Validating insurance information</p>
+                <p>• Checking coverage eligibility</p>
+                <p>• Analyzing potential issues</p>
+                <p>• Generating recommendations</p>
               </div>
             </div>
           </div>
@@ -63,17 +64,35 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {getStatusIcon(result.status)}
-            <CardTitle>Verification Results</CardTitle>
+            <CardTitle>AI Verification Results</CardTitle>
           </div>
           <Badge className={getStatusColor(result.status)}>
             {result.status.replace('_', ' ').toUpperCase()}
           </Badge>
         </div>
         <CardDescription>
-          Results for {result.patient.firstName} {result.patient.lastName} - {result.id}
+          AI-powered verification for {result.patient.firstName} {result.patient.lastName} - {result.id}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* AI Insights Section */}
+        {result.aiInsights && (
+          <>
+            <div className="space-y-3">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Brain className="h-4 w-4 text-blue-600" />
+                AI Analysis
+              </h3>
+              {result.aiInsights.reasoning && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-800">{result.aiInsights.reasoning}</p>
+                </div>
+              )}
+            </div>
+            <Separator />
+          </>
+        )}
+
         {/* Coverage Status */}
         <div className="space-y-3">
           <h3 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -145,11 +164,11 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
 
         <Separator />
 
-        {/* Next Steps */}
+        {/* AI Recommendations */}
         <div className="space-y-3">
           <h3 className="font-semibold text-gray-900 flex items-center gap-2">
             <Users className="h-4 w-4" />
-            Recommended Next Steps
+            AI Recommendations
           </h3>
           <div className="space-y-2">
             {result.nextSteps.map((step, index) => (
@@ -162,6 +181,27 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
             ))}
           </div>
         </div>
+
+        {/* Additional Questions */}
+        {result.aiInsights?.additionalQuestions && result.aiInsights.additionalQuestions.length > 0 && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <MessageCircle className="h-4 w-4" />
+                Additional Questions for Patient
+              </h3>
+              <div className="space-y-2">
+                {result.aiInsights.additionalQuestions.map((question, index) => (
+                  <div key={index} className="flex items-start gap-2 text-sm bg-yellow-50 p-3 rounded-lg">
+                    <MessageCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                    <span className="text-yellow-800">{question}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4">
@@ -199,6 +239,10 @@ const VerificationResults = ({ result, isLoading, getStatusIcon, getStatusColor 
             <p>Timestamp: {new Date(result.timestamp).toLocaleString()}</p>
             <p>Patient: {result.patient.firstName} {result.patient.lastName} (DOB: {result.patient.dob})</p>
             <p>Insurance: {result.patient.insuranceCompany} - Policy: {result.patient.policyNumber}</p>
+            <p className="flex items-center gap-1">
+              <Brain className="h-3 w-3" />
+              Verified using AI Agent
+            </p>
           </div>
         </div>
       </CardContent>

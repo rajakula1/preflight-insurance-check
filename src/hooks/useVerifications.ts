@@ -29,75 +29,35 @@ export const useVerifications = () => {
     },
   });
 
-  // Create a new verification request
+  // Create a new verification request using AI
   const createVerification = useMutation({
     mutationFn: async (patientData: PatientData) => {
-      console.log('Creating verification with patient data:', patientData);
+      console.log('Starting AI verification for patient:', patientData);
       
       try {
-        // First, insert the initial request
-        const insertData = {
-          patient_first_name: patientData.firstName,
-          patient_last_name: patientData.lastName,
-          patient_dob: patientData.dob,
-          insurance_company: patientData.insuranceCompany,
-          policy_number: patientData.policyNumber,
-          group_number: patientData.groupNumber || null,
-          member_id: patientData.memberID,
-          subscriber_name: patientData.subscriberName || null,
-          status: 'pending'
-        };
-
-        console.log('Inserting data into Supabase:', insertData);
-
-        const { data, error } = await supabase
-          .from('verification_requests')
-          .insert(insertData)
-          .select()
-          .single();
+        // Call the AI verification edge function
+        const { data, error } = await supabase.functions.invoke('ai-insurance-verification', {
+          body: { patientData }
+        });
 
         if (error) {
-          console.error('Error inserting verification request:', error);
+          console.error('AI verification error:', error);
           throw error;
         }
 
-        console.log('Successfully inserted verification request:', data);
-
-        // Simulate the verification process
-        const verificationResult = await simulateVerification(patientData);
-        
-        console.log('Verification result:', verificationResult);
-
-        // Update the record with the verification result
-        const { data: updatedData, error: updateError } = await supabase
-          .from('verification_requests')
-          .update({
-            status: verificationResult.status,
-            verification_result: verificationResult.coverage
-          })
-          .eq('id', data.id)
-          .select()
-          .single();
-
-        if (updateError) {
-          console.error('Error updating verification request:', updateError);
-          throw updateError;
-        }
-
-        console.log('Successfully updated verification request:', updatedData);
-
-        return transformToVerificationResult(updatedData);
+        console.log('AI verification completed:', data);
+        return data;
       } catch (error) {
-        console.error('Error in createVerification:', error);
+        console.error('Error in AI verification:', error);
         throw error;
       }
     },
     onSuccess: () => {
-      console.log('Verification created successfully, invalidating queries');
+      console.log('AI verification completed successfully, invalidating queries');
       queryClient.invalidateQueries({ queryKey: ['verifications'] });
     },
     onError: (error) => {
-      console.error('Mutation error:', error);
+      console.error('AI verification mutation error:', error);
     }
   });
 
@@ -133,36 +93,13 @@ const transformToVerificationResult = (record: any): VerificationResult => {
     },
     status: record.status,
     coverage,
-    nextSteps: getNextSteps(record.status)
-  };
-};
-
-// Simulate verification process (same logic as before)
-const simulateVerification = async (patient: PatientData) => {
-  console.log('Simulating verification for patient:', patient);
-  
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Mock different scenarios based on patient data
-  const scenarios = ['eligible', 'ineligible', 'requires_auth', 'error'] as const;
-  const status = scenarios[Math.floor(Math.random() * scenarios.length)];
-  
-  const result = {
-    status,
-    coverage: {
-      active: status !== 'ineligible',
-      effectiveDate: '2024-01-01',
-      terminationDate: status === 'ineligible' ? '2024-05-30' : undefined,
-      copay: status === 'eligible' ? 25 : undefined,
-      deductible: status === 'eligible' ? 1500 : undefined,
-      inNetwork: status === 'eligible',
-      priorAuthRequired: status === 'requires_auth'
+    nextSteps: coverage.recommendations || getNextSteps(record.status),
+    aiInsights: {
+      reasoning: coverage.aiReasoning,
+      recommendations: coverage.recommendations,
+      additionalQuestions: coverage.additionalQuestions
     }
   };
-
-  console.log('Simulation result:', result);
-  return result;
 };
 
 const getNextSteps = (status: string): string[] => {

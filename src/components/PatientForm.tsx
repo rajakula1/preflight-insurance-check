@@ -86,7 +86,7 @@ const PatientForm = ({ onSubmit, isLoading = false }: PatientFormProps) => {
           <CardTitle>Patient & Insurance Information</CardTitle>
         </div>
         <CardDescription>
-          Enter patient demographics and insurance details for eligibility verification
+          Enter patient demographics and insurance details for AI-powered eligibility verification
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -214,10 +214,10 @@ const PatientForm = ({ onSubmit, isLoading = false }: PatientFormProps) => {
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Verifying Eligibility...
+                AI Analyzing Insurance...
               </>
             ) : (
-              'Verify Insurance Eligibility'
+              'Verify with AI Agent'
             )}
           </Button>
         </form>
